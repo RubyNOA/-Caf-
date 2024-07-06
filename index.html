@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>虹色Café Puzzle</title>
+
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+
+        tailwind.config = {
+
+            theme: {
+
+                extend: {
+
+                    keyframes: {
+
+                        confetti: {
+
+                            '0%': { transform: 'translateY(0) rotateZ(0deg)' },
+
+                            '100%': { transform: 'translateY(100vh) rotateZ(720deg)' }
+
+                        }
+
+                    },
+
+                    animation: {
+
+                        'confetti': 'confetti 3s ease-in-out forwards'
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    </script>
+
+</head>
+
+<body>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+
+        const { useState, useEffect, useRef } = React;
+
+
+
+        const Button = ({ children, onClick, className }) => (
+
+            <button onClick={onClick} className={`px-4 py-2 rounded ${className}`}>{children}</button>
+
+        );
+
+
+
+        const Input = ({ type, placeholder, value, onChange, className }) => (
+
+            <input type={type} placeholder={placeholder} value={value} onChange={onChange} className={`border rounded px-2 py-1 ${className}`} />
+
+        );
+
+
+
+        const Card = ({ children, className }) => (
+
+            <div className={`bg-white bg-opacity-80 shadow-xl rounded-lg ${className}`}>{children}</div>
+
+        );
+
+
+
+        const Dialog = ({ open, onClose, children }) => (
+
+            open ? (
+
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+
+                    <div className="bg-white p-6 rounded-lg">
+
+                        {children}
+
+                        <button onClick={onClose} className="mt-4 bg-gray-200 px-4 py-2 rounded">Close</button>
+
+                    </div>
+
+                </div>
+
+            ) : null
+
+        );
+
+
+
+        const Confetti = () => (
+
+            <div className="fixed inset-0 pointer-events-none">
+
+                {[...Array(50)].map((_, index) => (
+
+                    <div
+
+                        key={index}
+
+                        className="absolute animate-confetti"
+
+                        style={{
+
+                            left: `${Math.random() * 100}%`,
+
+                            top: `-5%`,
+
+                            backgroundColor: `hsl(${Math.random() * 360}, 100%, 50%)`,
+
+                            width: '10px',
+
+                            height: '10px',
+
+                            animationDelay: `${Math.random() * 3}s`,
+
+                        }}
+
+                    />
+
+                ))}
+
+            </div>
+
+        );
+
+
+
+        const PuzzleGame = () => {
+
+            const [puzzle, setPuzzle] = useState([]);
+
+            const [completed, setCompleted] = useState(false);
+
+            const [moves, setMoves] = useState(0);
+
+            const [username, setUsername] = useState('');
+
+            const [leaderboard, setLeaderboard] = useState([]);
+
+            const [imageUrl, setImageUrl] = useState('https://via.placeholder.com/400');
+
+            const [selectedTile, setSelectedTile] = useState(null);
+
+            const [showCongrats, setShowCongrats] = useState(false);
+
+            const [showLeaderboardInput, setShowLeaderboardInput] = useState(false);
+
+            const [showConfetti, setShowConfetti] = useState(false);
+
+            const [timer, setTimer] = useState(0);
+
+            const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+            const audioRef = useRef(new Audio('path/to/swap-sound.mp3'));
+
+            const timerRef = useRef(null);
+
+
+
+            useEffect(() => {
+
+                generatePuzzle();
+
+                return () => clearInterval(timerRef.current);
+
+            }, []);
+
+
+
+            useEffect(() => {
+
+                if (isTimerRunning) {
+
+                    timerRef.current = setInterval(() => {
+
+                        setTimer(prevTimer => prevTimer + 1);
+
+                    }, 1000);
+
+                } else {
+
+                    clearInterval(timerRef.current);
+
+                }
+
+                return () => clearInterval(timerRef.current);
+
+            }, [isTimerRunning]);
+
+
+
+            const generatePuzzle = () => {
+
+                let newPuzzle = Array.from({ length: 25 }, (_, i) => i);
+
+                do {
+
+                    for (let i = newPuzzle.length - 1; i > 0; i--) {
+
+                        const j = Math.floor(Math.random() * (i + 1));
+
+                        [newPuzzle[i], newPuzzle[j]] = [newPuzzle[j], newPuzzle[i]];
+
+                    }
+
+                } while (!isSolvable(newPuzzle));
+
+
+
+                setPuzzle(newPuzzle);
+
+                setCompleted(false);
+
+                setMoves(0);
+
+                setSelectedTile(null);
+
+                setShowCongrats(false);
+
+                setShowLeaderboardInput(false);
+
+                setTimer(0);
+
+                setIsTimerRunning(true);
+
+            };
+
+
+
+            const isSolvable = (puzzle) => {
+
+                let inversions = 0;
+
+                for (let i = 0; i < puzzle.length; i++) {
+
+                    for (let j = i + 1; j < puzzle.length; j++) {
+
+                        if (puzzle[i] > puzzle[j]) {
+
+                            inversions++;
+
+                        }
+
+                    }
+
+                }
+
+                return inversions % 2 === 0;
+
+            };
+
+
+
+            const handleTileClick = (index) => {
+
+                if (completed) return;
+
+
+
+                if (selectedTile === null) {
+
+                    setSelectedTile(index);
+
+                } else {
+
+                    const newPuzzle = [...puzzle];
+
+                    const row1 = Math.floor(selectedTile / 5);
+
+                    const col1 = selectedTile % 5;
+
+                    const row2 = Math.floor(index / 5);
+
+                    const col2 = index % 5;
+
+
+
+                    if (
+
+                        (Math.abs(row1 - row2) === 1 && col1 === col2) ||
+
+                        (Math.abs(col1 - col2) === 1 && row1 === row2)
+
+                    ) {
+
+                        [newPuzzle[selectedTile], newPuzzle[index]] = [newPuzzle[index], newPuzzle[selectedTile]];
+
+                        setPuzzle(newPuzzle);
+
+                        setMoves(moves + 1);
+
+                        audioRef.current.play();
+
+
+
+                        if (newPuzzle.every((tile, i) => tile === i)) {
+
+                            setCompleted(true);
+
+                            setShowCongrats(true);
+
+                            setShowConfetti(true);
+
+                            setIsTimerRunning(false);
+
+                            setTimeout(() => setShowConfetti(false), 3000);
+
+                        }
+
+                    }
+
+                    setSelectedTile(null);
+
+                }
+
+            };
+
+
+
+            const updateLeaderboard = () => {
+
+                const newLeaderboard = [...leaderboard, { name: username || 'Anonymous', moves, time: timer }];
+
+                newLeaderboard.sort((a, b) => a.moves - b.moves || a.time - b.time);
+
+                setLeaderboard(newLeaderboard.slice(0, 10));
+
+                setShowLeaderboardInput(false);
+
+            };
+
+
+
+            const handleImageUpload = (e) => {
+
+                const file = e.target.files[0];
+
+                if (file) {
+
+                    const reader = new FileReader();
+
+                    reader.onload = (e) => {
+
+                        const img = new Image();
+
+                        img.onload = () => {
+
+                            const canvas = document.createElement('canvas');
+
+                            const ctx = canvas.getContext('2d');
+
+                            canvas.width = 400;
+
+                            canvas.height = 400;
+
+
+
+                            // 画像を中央に配置しつつリサイズ
+
+                            const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+
+                            const x = (canvas.width / 2) - (img.width / 2) * scale;
+
+                            const y = (canvas.height / 2) - (img.height / 2) * scale;
+
+                            ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+
+
+                            setImageUrl(canvas.toDataURL('image/jpeg'));
+
+                            generatePuzzle();
+
+                        };
+
+                        img.src = e.target.result;
+
+                    };
+
+                    reader.readAsDataURL(file);
+
+                }
+
+            };
+
+
+
+            const formatTime = (seconds) => {
+
+                const minutes = Math.floor(seconds / 60);
+
+                const remainingSeconds = seconds % 60;
+
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+
+            };
+
+
+
+            return (
+
+                <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-400">
+
+                    {showConfetti && <Confetti />}
+
+                    <Card className="w-[420px]">
+
+                        <div className="p-4">
+
+                            <h2 className="text-2xl font-bold text-center text-purple-600 mb-4">虹色Café Puzzle</h2>
+
+                            <div className="grid grid-cols-5 gap-[1px] mb-4 bg-gray-200 p-[1px] rounded-lg">
+
+                                {puzzle.map((tile, index) => (
+
+                                    <div
+
+                                        key={index}
+
+                                        onClick={() => handleTileClick(index)}
+
+                                        className={`w-20 h-20 flex items-center justify-center cursor-pointer
+
+overflow-hidden ${                                            selectedTile === index ? 'border-2 border-yellow-400' : ''                                        }`}                                        style={{                                            backgroundImage: `url(${imageUrl})`,                                            backgroundSize: '400px 400px',                                            backgroundPosition: `${-(tile % 5) * 80}px ${-Math.floor(tile / 5) * 80}px`,                                        }}                                    />                                ))}                            </div>                            <div className="flex justify-between items-center mb-4">                                <Button onClick={generatePuzzle} className="bg-purple-500 hover:bg-purple-600 text-white">                                    New Game                                </Button>                                <div className="text-purple-700">Moves: {moves} | Time: {formatTime(timer)}</div>                            </div>                            <div className="flex items-center mb-4">                                <Input type="file" accept="image/*" onChange={handleImageUpload} className="mr-2" />                                <Button className="bg-green-500 hover:bg-green-600 text-white">                                    Upload                                </Button>                            </div>                            <div className="mt-4">                                <h3 className="text-lg font-semibold text-purple-600 mb-2">Leaderboard</h3>                                <ul>                                    {leaderboard.map((entry, index) => (                                        <li key={index} className="flex justify-between items-center text-sm text-gray-600">                                            <span>{entry.name}</span>                                            <span>{entry.moves} moves | {formatTime(entry.time)}</span>                                        </li>                                    ))}                                </ul>                            </div>                        </div>                    </Card>                    <Dialog open={showCongrats} onClose={() => setShowCongrats(false)}>                        <h3 className="text-xl font-bold mb-4">Congratulations!</h3>                        <div className="flex flex-col items-center">                            <img src={imageUrl} alt="Completed Puzzle" className="w-64 h-64 object-cover mb-4" />                            <p>You completed the puzzle in {moves} moves and {formatTime(timer)}!</p>                        </div>                        <Button onClick={() => { setShowCongrats(false); setShowLeaderboardInput(true); }} className="mt-4 bg-blue-500 hover:bg-blue-600 text-white">                            Add to Leaderboard                        </Button>                    </Dialog>                    <Dialog open={showLeaderboardInput} onClose={() => setShowLeaderboardInput(false)}>                        <h3 className="text-xl font-bold mb-4">Enter Your Name</h3>                        <Input                            type="text"                            placeholder="Enter your name"                            value={username}                            onChange={(e) => setUsername(e.target.value)}                            className="mb-4"                        />                        <Button onClick={updateLeaderboard} className="bg-green-500 hover:bg-green-600 text-white">                            OK                        </Button>                    </Dialog>                </div>            );        };        ReactDOM.render(<PuzzleGame />, document.getElementById('root'));    </script></body></html>
+
+
+
